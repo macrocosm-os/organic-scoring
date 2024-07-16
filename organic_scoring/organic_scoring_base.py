@@ -5,9 +5,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Literal, Optional, Sequence, Union
 
-import torch
 import bittensor as bt
-
 from prompting.organic.organic_scoring.synth_dataset_base import SynthDatasetBase
 
 
@@ -15,7 +13,7 @@ class OrganicScoringBase(ABC):
     def __init__(
         self,
         axon: bt.axon,
-        synth_dataset: Union[SynthDatasetBase, list[SynthDatasetBase], tuple[SynthDatasetBase]],
+        synth_dataset: Union[SynthDatasetBase, Sequence[SynthDatasetBase]],
         trigger_frequency: Union[float, int],
         trigger: Literal["seconds", "steps"],
         *args, **kwargs,
@@ -23,11 +21,14 @@ class OrganicScoringBase(ABC):
         """Runs the organic weight setter task in separate threads
 
         Args:
-            axon: The axon to use.
+            axon: The axon to use, must be started and served.
             synth_dataset: The synthetic dataset to use.
-            trigger_frequency: The frequency to trigger the reward step.
+            trigger_frequency: The frequency to trigger the organic scoring reward step.
             trigger: The trigger type, available values: "seconds", "steps".
-        
+                In case of "seconds" the `trigger_frequency` is the number of seconds to wait between each step.
+                In case of "steps" the `trigger_frequency` is the number of steps to wait between each step. The
+                `increment_step` method should be called to increment the step counter.
+
         Override the following methods:
             _priority_fn: Priority value for organic handles.
             _blacklist_fn: Blacklist for organic handles.
@@ -41,8 +42,9 @@ class OrganicScoringBase(ABC):
         self._axon = axon
         self._should_exit = False
         self._is_running = False
-        if not isinstance(synth_dataset, (list, tuple)):
-            self._synth_dataset = (synth_dataset,)
+        self._synth_dataset = synth_dataset
+        if not isinstance(self._synth_dataset, (list, tuple)):
+            self._synth_dataset = tuple(synth_dataset)
         self._trigger_frequency = trigger_frequency
         self._trigger = trigger
         self._thread: Optional[threading.Thread] = None
@@ -50,7 +52,7 @@ class OrganicScoringBase(ABC):
         self._step_counter = 0
 
     def start(self):
-        """Start the organic scoring task in a background thread"""
+        """Start the organic scoring in a background thread"""
         if not self._is_running:
             bt.logging.debug("Starting organic tasks in background thread.")
             self._should_exit = False
@@ -72,14 +74,25 @@ class OrganicScoringBase(ABC):
             self._step_counter += 1
 
     def set_step(self, step: int):
-        """
-        Set the step counter to a specific value.
+        """Set the step counter to a specific value
 
         Args:
-            step (int): The step value to set.
+            step: The step value to set.
         """
         if self._trigger == "steps":
             self._step_counter = step
+
+    @abstractmethod
+    async def on_organic_entry(self, synapse: bt.StreamingSynapse) -> bt.StreamingSynapse:
+        """Handle an organic entry
+
+        Args:
+            synapse: The synapse to handle.
+
+        Returns:
+            bt.StreamingSynapse: The handled synapse.
+        """
+        raise NotImplementedError
 
     async def _priority_fn(self, synapse: bt.StreamingSynapse) -> float:
         """Priority function for the axon"""
@@ -93,7 +106,7 @@ class OrganicScoringBase(ABC):
         """Start the run loop for the organic scoring task"""
         self._axon.attach(
             forward_fn=self.on_organic_entry,
-            blacklist_fn=None,
+            blacklist_fn=self._blacklist_fn,
             priority_fn=self._priority_fn,
         )
         loop = asyncio.new_event_loop()
@@ -104,23 +117,11 @@ class OrganicScoringBase(ABC):
             loop.close()
 
     @abstractmethod
-    async def on_organic_entry(self, synapse: bt.StreamingSynapse) -> bt.StreamingSynapse:
-        """Handle an organic entry
-
-        Args:
-            synapse (bt.StreamingSynapse): The synapse to handle.
-
-        Returns:
-            bt.StreamingSynapse: The handled synapse.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
     async def query_miners(self, sample: Any) -> dict[str, Any]:
         """Query the miners with a sample
 
         Args:
-            sample (Any): The sample to query with.
+            sample: The sample to query with.
 
         Returns:
             dict[str, Any]: The responses from the miners.
@@ -132,9 +133,9 @@ class OrganicScoringBase(ABC):
         """Generate rewards based on the sample and responses
 
         Args:
-            sample (Any): The sample to use.
-            responses (Sequence[Any]): The responses from the miners.
-            reference (Any, optional): The reference data. Defaults to None.
+            sample: The sample to use.
+            responses: The responses from the miners.
+            reference: The reference data. Defaults to None.
 
         Returns:
             dict[str, Any]: The generated rewards information.
@@ -146,8 +147,7 @@ class OrganicScoringBase(ABC):
         """Set the weights for the miners
 
         Args:
-            weights (Union[Sequence, torch.Tensor]): The weights to set.
-            uids (Union[Sequence, torch.Tensor]): The uids of the miners.
+            rewards: Dict with rewards and any additional info.
         """
         raise NotImplementedError
 
@@ -155,7 +155,7 @@ class OrganicScoringBase(ABC):
         """Generate a reference based on the sample
 
         Args:
-            sample (Any): The sample to use.
+            sample: The sample used to generate the reference.
 
         Returns:
             Optional[Any]: The generated reference, if any.
@@ -172,14 +172,14 @@ class OrganicScoringBase(ABC):
         *args,
         **kwargs,
     ) -> dict[str, Any]:
-        """Log the results of the scoring task
+        """Log the results of the organic scoring iteration
 
         Args:
-            logs (dict[str, Any]): The logs to record.
-            reference (Any): The reference data.
-            responses (dict[str, Any]): The responses from the miners.
-            rewards (dict[str, Any]): The generated rewards.
-            sample (Any): The sample used.
+            logs: The logs to record.
+            reference: The reference data.
+            responses: The responses from the miners.
+            rewards: The generated rewards.
+            sample: The sample used.
 
         Returns:
             dict[str, Any]: The logs recorded.
@@ -197,25 +197,32 @@ class OrganicScoringBase(ABC):
 
             timer_sample = time.perf_counter()
             if self._organic_queue:
+                # Choose random organic sample.
                 sample = self._organic_queue.pop(random.randint(0, len(self._organic_queue) - 1))
             else:
+                # Choose if organic queue is empty, choose random sample from provided datasets.
                 sample = random.choice(self._synth_dataset).sample()
+
             timer_sample_elapsed = time.perf_counter() - timer_sample
 
+            # Concurrently generate reference and query miners.
             timer_responses = time.perf_counter()
             reference_task = asyncio.create_task(self.generate_reference(sample))
             responses_task = asyncio.create_task(self.query_miners(sample))
             reference, responses = await asyncio.gather(reference_task, responses_task)
             timer_responses_elapsed = time.perf_counter() - timer_responses
 
+            # Generate rewards.
             timer_rewards = time.perf_counter()
             rewards = await self.generate_rewards(sample, responses, reference)
             timer_rewards_elapsed = time.perf_counter() - timer_rewards
 
+            # Set weights based on the generated rewards.
             timer_weights = time.perf_counter()
             await self.set_weights(rewards)
             timer_weights_elapsed = time.perf_counter() - timer_weights
 
+            # Log the metrics.
             timer_elapsed = time.perf_counter() - timer_total
             logs = {
                 "time_sample": timer_sample_elapsed,
@@ -223,6 +230,7 @@ class OrganicScoringBase(ABC):
                 "time_rewards": timer_rewards_elapsed,
                 "time_weights": timer_weights_elapsed,
                 "time_total": timer_elapsed,
+                "organic_queue_len": len(self._organic_queue),
             }
             await self.log(
                 logs=logs,

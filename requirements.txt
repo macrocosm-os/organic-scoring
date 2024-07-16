@@ -1,0 +1,2 @@
+bittensor>=6.9.3
+datasets>=2.14.6
