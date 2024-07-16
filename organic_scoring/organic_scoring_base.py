@@ -43,8 +43,8 @@ class OrganicScoringBase(ABC):
         self._should_exit = False
         self._is_running = False
         self._synth_dataset = synth_dataset
-        if not isinstance(self._synth_dataset, (list, tuple)):
-            self._synth_dataset = tuple(synth_dataset)
+        if isinstance(self._synth_dataset, SynthDatasetBase):
+            self._synth_dataset = (synth_dataset,)
         self._trigger_frequency = trigger_frequency
         self._trigger = trigger
         self._thread: Optional[threading.Thread] = None

@@ -10,7 +10,7 @@ setup(
     install_requires=requirements,
     author="Dmytro Bobrenko",
     author_email="dmytro.bobrenko@macrocosmos.ai",
-    description="Generic Organic Scoring Bittensor Framework",
+    description="Generic Organic Scoring for Bittensor Subnets",
     url="https://github.com/macrocosm-os/organic-scoring",
     classifiers=[
         "Programming Language :: Python :: 3",
