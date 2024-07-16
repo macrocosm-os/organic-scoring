@@ -6,7 +6,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Literal, Optional, Sequence
 
 import bittensor as bt
-from prompting.organic.organic_scoring.synth_dataset_base import SynthDatasetBase
+
+from organic_scoring.synth_dataset_base import SynthDatasetBase
 
 
 class OrganicScoringBase(ABC):

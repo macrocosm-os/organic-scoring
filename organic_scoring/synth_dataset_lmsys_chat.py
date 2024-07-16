@@ -1,7 +1,8 @@
 import random
+
 import datasets
 
-from prompting.organic.organic_scoring.synth_dataset_base import SynthDatasetBase
+from organic_scoring.synth_dataset_base import SynthDatasetBase
 
 
 class SynthDatasetLmSysChat(SynthDatasetBase):
