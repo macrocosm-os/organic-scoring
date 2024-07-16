@@ -3,7 +3,7 @@ import random
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Literal, Optional, Sequence, Union
+from typing import Any, Literal, Optional, Sequence
 
 import bittensor as bt
 from prompting.organic.organic_scoring.synth_dataset_base import SynthDatasetBase
@@ -13,8 +13,8 @@ class OrganicScoringBase(ABC):
     def __init__(
         self,
         axon: bt.axon,
-        synth_dataset: Union[SynthDatasetBase, Sequence[SynthDatasetBase]],
-        trigger_frequency: Union[float, int],
+        synth_dataset: SynthDatasetBase | Sequence[SynthDatasetBase],
+        trigger_frequency: float | int,
         trigger: Literal["seconds", "steps"],
         *args, **kwargs,
     ):
