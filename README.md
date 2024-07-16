@@ -1,8 +1,21 @@
 # Organic Scoring Framework
 
-Generic implementation for integration organic scoring into Bittensor subnet.
+Generic implementation of organic scoring for integration into Bittensor subnet.
 
-## Implement the following methods
+## Setup
+
+Add to your requirements:
+```shell
+git+https://github.com/macrocosm-os/organic-scoring.git@main
+```
+
+Or install manually by:
+```shell
+pip install git+https://github.com/macrocosm-os/organic-scoring.git@main
+```
+
+## Implementation
+### Implement the following methods
 - `on_organic_entry`: Handle an organic entry.
 - `query_miners`: Query the miners with a given organic sample.
 - `generate_rewards`: Concurrently generate rewards based on the sample and responses.
@@ -13,7 +26,7 @@ Generic implementation for integration organic scoring into Bittensor subnet.
 - (Optional) `_blacklist_fn`: Blacklist for organic handles.
 
 
-## Example Usage
+### Example Usage
 
 ```python
 class OrganicScoringPrompting(OrganicScoringBase):
@@ -35,9 +48,8 @@ organic_scoring.start()
 ```
 
 
-## Examples
+## Additional Information
 
 TODO: SN1 implementation reference.
 
-
-## 
+Feel free to reach out us through the [Bittensor discord](https://discord.gg/UqAxyhrf) (alpha 1 - SN1 channel).
