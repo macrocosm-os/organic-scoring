@@ -193,11 +193,11 @@ class OrganicScoringBase(ABC):
 
         Args:
             logs: The logs to record. Default values in the dict:
-                - "time_sample": Time taken in seconds to sample the organic queue or synthetic dataset;
-                - "time_responses": Time taken in seconds to concurrently query the miners and generate reference;
-                - "time_rewards": Time taken in seconds to generate rewards;
-                - "time_weights": Time taken in seconds to set the weights;
-                - "time_total": Total time taken in seconds for the iteration;
+                - "organic_time_sample": Time taken in seconds to sample the organic queue or synthetic dataset;
+                - "organic_time_responses": Time taken in seconds to query the miners and generate reference;
+                - "organic_time_rewards": Time taken in seconds to generate rewards;
+                - "organic_time_weights": Time taken in seconds to set the weights;
+                - "organic_time_total": Total time taken in seconds for the iteration;
                 - "organic_queue_len": Current length of the organic queue;
                 - "is_organic_sample": If the sample is from the organic queue.
             reference: The reference data.
@@ -232,6 +232,13 @@ class OrganicScoringBase(ABC):
                 while self._step_counter < self._trigger_frequency:
                     await asyncio.sleep(0.1)
 
+            try:
+                await self._run_loop_iteration()
+            except Exception as e:
+                bt.logging.error(f"Error in organic scoring iteration:\n{e}")
+                await asyncio.sleep(1)
+
+    async def _run_loop_iteration(self):
             timer_total = time.perf_counter()
 
             timer_sample = time.perf_counter()
