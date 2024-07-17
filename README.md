@@ -89,8 +89,6 @@ organic_scoring = YourOrganicScoring(
 organic_scoring.start()
 ```
 
-To implement your synthetic dataset, inherit from `synth_dataset_base.SynthDatasetBase`
-
 
 ## Additional Information
 

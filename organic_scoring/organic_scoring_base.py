@@ -68,7 +68,7 @@ class OrganicScoringBase(ABC):
         self._synth_dataset = synth_dataset
         if isinstance(self._synth_dataset, SynthDatasetBase):
             self._synth_dataset = (synth_dataset,)
-        self._trigger_delay = trigger_frequency
+        self._trigger_frequency = trigger_frequency
         self._trigger = trigger
         self._trigger_min = trigger_frequency_min
         self._trigger_scaling_factor = trigger_scaling_factor
@@ -230,7 +230,7 @@ class OrganicScoringBase(ABC):
         """The main loop for running the organic scoring task, either based on a time interval or steps"""
         while not self._should_exit:
             if self._trigger == "steps":
-                while self._step_counter < self._trigger_delay:
+                while self._step_counter < self._trigger_frequency:
                     await asyncio.sleep(0.1)
 
             timer_total = time.perf_counter()
@@ -310,11 +310,11 @@ class OrganicScoringBase(ABC):
         size = self._organic_queue.size()
         if self._trigger == "seconds":
             # Adjust the sleep duration based on the queue size.
-            dynamic_frequency = max(self._trigger_delay - (size / self._trigger_scaling_factor), self._trigger_min)
+            dynamic_frequency = max(self._trigger_frequency - (size / self._trigger_scaling_factor), self._trigger_min)
             sleep_duration = max(dynamic_frequency - timer_elapsed, 0)
             await asyncio.sleep(sleep_duration)
         elif self._trigger == "steps":
             # Adjust the steps based on the queue size.
-            dynamic_steps = max(self._trigger_delay - (size // self._trigger_scaling_factor), self._trigger_min)
+            dynamic_steps = max(self._trigger_frequency - (size // self._trigger_scaling_factor), self._trigger_min)
             with self._step_lock:
                 self._step_counter = max(self._step_counter - dynamic_steps, 0)
