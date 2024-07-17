@@ -266,11 +266,11 @@ class OrganicScoringBase(ABC):
             # Log the metrics.
             timer_elapsed = time.perf_counter() - timer_total
             logs = {
-                "time_sample": timer_sample_elapsed,
-                "time_responses": timer_responses_elapsed,
-                "time_rewards": timer_rewards_elapsed,
-                "time_weights": timer_weights_elapsed,
-                "time_total": timer_elapsed,
+                "organic_time_sample": timer_sample_elapsed,
+                "organic_time_responses": timer_responses_elapsed,
+                "organic_time_rewards": timer_rewards_elapsed,
+                "organic_time_weights": timer_weights_elapsed,
+                "organic_time_total": timer_elapsed,
                 "organic_queue_size": self._organic_queue.size(),
                 "is_organic_sample": is_organic_sample,
             }
