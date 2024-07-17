@@ -54,8 +54,9 @@ pip install git+https://github.com/macrocosm-os/organic-scoring.git@main
 - (Optional) `_generate_reference`: Generate a reference based on the sample, if required.
     Used in `_generate_rewards`.
 - (Optional) `_log_results`: Log the results.
-- (Optional) `_priority_fn`: Priority value for organic handles.
-- (Optional) `_blacklist_fn`: Blacklist for organic handles.
+- (Optional) `_priority_fn`: Function with priority value for organic handles.
+- (Optional) `_blacklist_fn`: Function with blacklist for organic handles.
+- (Optional) `_verify_fn`: Function to verify requests for organic handles.
 
 ```python
 from organic_scoring import OrganicScoringBase
