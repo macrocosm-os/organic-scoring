@@ -1,6 +1,6 @@
-# Generic Implementation of Organic Scoring for Bittensor Subnet
+# Generic Implementation of Organic Scoring for Bittensor Subnets
 
-This implementation provides a generic solution for integrating organic scoring into a Bittensor subnet.
+This implementation provides a generic solution for integrating organic scoring into a Bittensor subnets.
 
 ## Functionality Overview
 - **Organic Query Handling**: Manages organic queries through the axon while storing samples in a queue.
@@ -37,7 +37,16 @@ pip install git+https://github.com/macrocosm-os/organic-scoring.git@main
 ```
 
 ## Implementation
-### Implement the following methods
+
+### Example Usage
+1. Create a subclass of OrganicScoringBase.
+2. Implement the required methods.
+3. Create an instance of the subclass.
+4. Call the `start` method to start the organic scoring task.
+5. Call the `stop` method to stop the organic scoring task.
+6. Call the `increment_step` method to increment the step counter if the trigger is set to "steps".
+
+### Implement the following OrganicScoringBase methods
 - `_on_organic_entry`: Handle an organic entry, append required values to `_organic_queue`.
 - `_query_miners`: Query the miners with a given organic sample.
 - `_generate_rewards`: Concurrently generate rewards based on the sample and responses.
@@ -47,15 +56,6 @@ pip install git+https://github.com/macrocosm-os/organic-scoring.git@main
 - (Optional) `_log_results`: Log the results.
 - (Optional) `_priority_fn`: Priority value for organic handles.
 - (Optional) `_blacklist_fn`: Blacklist for organic handles.
-
-
-### Example Usage
-1. Create a subclass of OrganicScoringBase.
-2. Implement the required methods.
-3. Create an instance of the subclass.
-4. Call the `start` method to start the organic scoring task.
-5. Call the `stop` method to stop the organic scoring task.
-6. Call the `increment_step` method to increment the step counter if the trigger is set to "steps".
 
 ```python
 from organic_scoring import OrganicScoringBase
