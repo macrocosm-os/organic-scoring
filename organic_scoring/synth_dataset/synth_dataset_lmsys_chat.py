@@ -1,8 +1,9 @@
 import random
+from typing import Any
 
 import datasets
 
-from organic_scoring.synth_dataset_base import SynthDatasetBase
+from organic_scoring.synth_dataset import SynthDatasetBase
 
 
 class SynthDatasetLmSysChat(SynthDatasetBase):
@@ -10,7 +11,7 @@ class SynthDatasetLmSysChat(SynthDatasetBase):
         self._url = "lmsys/lmsys-chat-1m"
         self.dataset = datasets.load_dataset(self._url)["train"]
 
-    def sample(self):
+    def sample(self) -> dict[str, Any]:
         # Randomly select a sample from the dataset.
         sample_idx = random.randint(0, len(self.dataset) - 1)
         conversation = self.dataset[sample_idx]["conversation"]
