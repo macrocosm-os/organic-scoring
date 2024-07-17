@@ -21,6 +21,7 @@ class OrganicQueueBase(ABC):
         """Pop the sample from the queue"""
         raise NotImplementedError
 
+    @abstractmethod
     def size(self) -> int:
         raise NotImplementedError
 

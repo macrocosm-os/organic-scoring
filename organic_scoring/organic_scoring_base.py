@@ -284,7 +284,7 @@ class OrganicScoringBase(ABC):
             await self._trigger_delay(timer_elapsed=timer_elapsed)
 
     async def _trigger_delay(self, timer_elapsed: float):
-        """Adjust the sampling rate dynamically based on the size of the organic queue and the elapsed time.
+        """Adjust the sampling rate dynamically based on the size of the organic queue and the elapsed time
 
         This method implements an annealing sampling rate that adapts to the growth of the organic queue,
         ensuring the system can keep up with the data processing demands.
@@ -307,13 +307,12 @@ class OrganicScoringBase(ABC):
         """
         # Annealing sampling rate logic
         size = self._organic_queue.size()
+        dynamic_unit = max(self._trigger_frequency - (size / self._trigger_scaling_factor), self._trigger_min)
         if self._trigger == "seconds":
             # Adjust the sleep duration based on the queue size.
-            dynamic_frequency = max(self._trigger_frequency - (size / self._trigger_scaling_factor), self._trigger_min)
-            sleep_duration = max(dynamic_frequency - timer_elapsed, 0)
+            sleep_duration = max(dynamic_unit - timer_elapsed, 0)
             await asyncio.sleep(sleep_duration)
         elif self._trigger == "steps":
             # Adjust the steps based on the queue size.
-            dynamic_steps = max(self._trigger_frequency - (size // self._trigger_scaling_factor), self._trigger_min)
             with self._step_lock:
-                self._step_counter = max(self._step_counter - dynamic_steps, 0)
+                self._step_counter = max(self._step_counter - int(dynamic_unit), 0)

@@ -2,11 +2,13 @@
 
 This implementation provides a generic solution for integrating organic scoring into a Bittensor subnets.
 
+
 ## Functionality Overview
 - **Organic Query Handling**: Manages organic queries through the axon while storing samples in a queue.
 - **Rewarding Process**: Can be triggered based on a specified number of `steps` or `seconds`,
 as defined by the `trigger` and `trigger_frequency` parameters. If `trigger` is set to `steps`,
 steps must be incremented using the `increment_step` or `set_step` methods.
+
 
 ## Process Workflow
 1. **Trigger Check**: Upon triggering the rewarding process, the system checks if the organic queue is empty.
