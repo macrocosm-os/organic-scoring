@@ -7,8 +7,7 @@ from typing import Any, Callable, Literal, Optional, Sequence
 
 import bittensor as bt
 
-from organic_scoring.organic_queue import OrganicQueue
-from organic_scoring.organic_queue import OrganicQueueBase
+from organic_scoring.organic_queue import OrganicQueue, OrganicQueueBase
 from organic_scoring.synth_dataset import SynthDatasetBase
 
 

@@ -20,9 +20,6 @@ is processed by the `_generate_rewards` method.
 5. **Logging**: Finally, the results can be logged using the `_log_results` method, along with all relevant data
 provided as arguments, and default time elapsed on each step of rewarding process.
 
-This structured approach ensures a seamless integration of organic scoring mechanisms into the Bittensor subnets,
-supporting efficient and scalable operations.
-
 
 ## Setup
 
