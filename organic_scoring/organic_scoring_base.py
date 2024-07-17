@@ -19,6 +19,8 @@ class OrganicScoringBase(ABC):
         synth_dataset: SynthDatasetBase | Sequence[SynthDatasetBase],
         trigger_frequency: float | int,
         trigger: Literal["seconds", "steps"],
+        trigger_frequency_min: float | int = 2,
+        trigger_scaling_factor: float | int = 50,
         organic_queue: OrganicQueueBase | None = None,
     ):
         """Runs the organic weight setter task in separate threads
@@ -33,6 +35,11 @@ class OrganicScoringBase(ABC):
                 `increment_step` method should be called to increment the step counter.
             organic_queue: The organic queue to use, must be inherited from `organic_queue.OrganicQueueBase`.
                 Defaults to `organic_queue.OrganicQueue`.
+            trigger_frequency_min: The minimum frequency value to trigger the organic scoring reward step.
+                Defaults to 1.
+            trigger_scaling_factor: The scaling factor to adjust the trigger frequency based on the size
+                of the organic queue. A higher value means that the trigger frequency adjusts more slowly to changes
+                in the organic queue size. This value must be greater than 0.
 
         Override the following methods:
             - `_on_organic_entry`: Handle an organic entry, append required values to `_organic_queue`.
@@ -61,12 +68,15 @@ class OrganicScoringBase(ABC):
         self._synth_dataset = synth_dataset
         if isinstance(self._synth_dataset, SynthDatasetBase):
             self._synth_dataset = (synth_dataset,)
-        self._trigger_frequency = trigger_frequency
+        self._trigger_delay = trigger_frequency
         self._trigger = trigger
-        self._thread: Optional[threading.Thread] = None
+        self._trigger_min = trigger_frequency_min
+        self._trigger_scaling_factor = trigger_scaling_factor
+        assert self._trigger_scaling_factor > 0, "The scaling factor must be higher than 0."
         self._organic_queue = organic_queue
         if self._organic_queue is None:
             self._organic_queue = OrganicQueue()
+        self._thread: Optional[threading.Thread] = None
         self._step_counter = 0
         self._step_lock = threading.Lock()
 
@@ -220,7 +230,7 @@ class OrganicScoringBase(ABC):
         """The main loop for running the organic scoring task, either based on a time interval or steps"""
         while not self._should_exit:
             if self._trigger == "steps":
-                while self._step_counter < self._trigger_frequency:
+                while self._step_counter < self._trigger_delay:
                     await asyncio.sleep(0.1)
 
             timer_total = time.perf_counter()
@@ -272,10 +282,39 @@ class OrganicScoringBase(ABC):
                 rewards=rewards,
                 sample=sample
             )
+            await self._trigger_delay(timer_elapsed=timer_elapsed)
 
-            if self._trigger == "seconds":
-                sleep_duration = max(self._trigger_frequency - timer_elapsed, 0)
-                await asyncio.sleep(sleep_duration)
-            elif self._trigger == "steps":
-                with self._step_lock:
-                    self._step_counter = 0
+    async def _trigger_delay(self, timer_elapsed: float):
+        """Adjust the sampling rate dynamically based on the size of the organic queue and the elapsed time.
+
+        This method implements an annealing sampling rate that adapts to the growth of the organic queue,
+        ensuring the system can keep up with the data processing demands.
+
+        Args:
+            timer_elapsed: The time elapsed during the current iteration of the processing loop. This is used 
+                to calculate the remaining sleep duration when the trigger is based on seconds.
+
+        Behavior:
+            - If the trigger is set to "seconds", the method calculates a dynamic frequency based on the current queue 
+            size and the scaling factor, then sleeps for the remaining duration after considering the elapsed time.
+            - If the trigger is set to "steps", the method adjusts the step counter dynamically based on the current 
+            queue size and the scaling factor, ensuring that the system can keep up with the processing demands.
+        
+        Dynamic Adjustment:
+            - The `dynamic_frequency` is calculated by reducing the original frequency by a value proportional to the 
+            queue size divided by the scaling factor. It ensures the frequency does not drop below `min_seconds`.
+            - The `dynamic_steps` is calculated similarly, reducing the original step count by a value proportional 
+            to the queue size divided by the scaling factor. It ensures the steps do not drop below `min_steps`.
+        """
+        # Annealing sampling rate logic
+        size = self._organic_queue.size()
+        if self._trigger == "seconds":
+            # Adjust the sleep duration based on the queue size.
+            dynamic_frequency = max(self._trigger_delay - (size / self._trigger_scaling_factor), self._trigger_min)
+            sleep_duration = max(dynamic_frequency - timer_elapsed, 0)
+            await asyncio.sleep(sleep_duration)
+        elif self._trigger == "steps":
+            # Adjust the steps based on the queue size.
+            dynamic_steps = max(self._trigger_delay - (size // self._trigger_scaling_factor), self._trigger_min)
+            with self._step_lock:
+                self._step_counter = max(self._step_counter - dynamic_steps, 0)
