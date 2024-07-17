@@ -47,7 +47,8 @@ pip install git+https://github.com/macrocosm-os/organic-scoring.git@main
 6. Call the `increment_step` method to increment the step counter if the trigger is set to "steps".
 
 ### Implement the following OrganicScoringBase methods
-- `_on_organic_entry`: Handle an organic entry, append required values to `_organic_queue`.
+- `_on_organic_entry`: Handle an organic entry.
+    Important: this method must add the required values to the `_organic_queue`.
 - `_query_miners`: Query the miners with a given organic sample.
 - `_generate_rewards`: Concurrently generate rewards based on the sample and responses.
 - `_set_weights`: Set the weights based on generated rewards for the miners.
