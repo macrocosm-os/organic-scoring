@@ -9,6 +9,7 @@ import bittensor as bt
 
 from organic_scoring.organic_queue import OrganicQueue, OrganicQueueBase
 from organic_scoring.synth_dataset import SynthDatasetBase
+from organic_scoring.utils import is_overridden
 
 
 class OrganicScoringBase(ABC):
@@ -77,25 +78,18 @@ class OrganicScoringBase(ABC):
             self._organic_queue = OrganicQueue()
         self._thread: Optional[threading.Thread] = None
         self._step_counter = 0
-        self._step_lock = threading.Lock()
+        self._step_lock = asyncio.Lock()
 
-        # Optional methods to override.
-        # Bittensor's internal checks require synapse to be a subclass of bt.Synapse.
-        # By defining these methods as instance members, we provide flexibility for overriding them in derived classes.
-        self._priority_fn: Optional[Callable[[bt.Synapse], float]] = None
-        self._blacklist_fn: Optional[Callable[[bt.Synapse], tuple[bool, str]]] = None
-        self._verify_fn: Optional[Callable[[bt.Synapse], bool]] = None
-
-    def start(self):
+    def start_thread(self):
         """Start the organic scoring in a background thread"""
         if not self._is_running:
             bt.logging.debug("Starting organic tasks in background thread.")
             self._should_exit = False
             self._is_running = True
-            self._thread = threading.Thread(target=self._start_run_loop, daemon=True)
+            self._thread = threading.Thread(target=asyncio.run, args=(self.start_loop(),), daemon=True)
             self._thread.start()
 
-    def stop(self):
+    def stop_thread(self):
         """Stop the organic scoring background thread"""
         if self._is_running:
             bt.logging.debug("Stopping organic tasks in background thread.")
@@ -210,85 +204,90 @@ class OrganicScoringBase(ABC):
         """
         return logs
 
-    def _start_run_loop(self):
-        """Start the run loop for the organic scoring task"""
+    def _priority_fn(self, synapse: bt.Synapse) -> float:
+        """Priority function to sort the organic queue"""
+        raise NotImplementedError
+
+    def _blacklist_fn(self, synapse: bt.Synapse) -> tuple[bool, str]:
+        """Blacklist function for organic handles"""
+        raise NotImplementedError
+
+    def _verify_fn(self, synapse: bt.Synapse) -> bool:
+        """Function to verify requests for organic handles"""
+        raise NotImplementedError
+
+    async def start_loop(self):
+        """The main loop for running the organic scoring task, either based on a time interval or steps"""
+        # Bittensor's internal checks require synapse to be a subclass of bt.Synapse.
+        # If the methods are not overridden in the derived class, None is passed.
         self._axon.attach(
             forward_fn=self._on_organic_entry,
-            blacklist_fn=self._blacklist_fn,
-            priority_fn=self._priority_fn,
-            verify_fn=self._verify_fn,
+            blacklist_fn=self._blacklist_fn if is_overridden(self._blacklist_fn) else None,
+            priority_fn=self._priority_fn if is_overridden(self._priority_fn) else None,
+            verify_fn=self._verify_fn if is_overridden(self._verify_fn) else None,
         )
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(self._run_loop())
-        finally:
-            loop.close()
-
-    async def _run_loop(self):
-        """The main loop for running the organic scoring task, either based on a time interval or steps"""
         while not self._should_exit:
             if self._trigger == "steps":
                 while self._step_counter < self._trigger_frequency:
                     await asyncio.sleep(0.1)
 
             try:
-                await self._run_loop_iteration()
+                await self._loop_iteration()
             except Exception as e:
-                bt.logging.error(f"Error in organic scoring iteration:\n{e}")
+                bt.logging.error(f"Error occured during organic scoring iteration:\n{e}")
                 await asyncio.sleep(1)
 
-    async def _run_loop_iteration(self):
-            timer_total = time.perf_counter()
+    async def _loop_iteration(self):
+        timer_total = time.perf_counter()
 
-            timer_sample = time.perf_counter()
-            is_organic_sample = False
-            if not self._organic_queue.is_empty():
-                # Choose random organic sample.
-                sample = self._organic_queue.sample()
-                is_organic_sample = True
-            else:
-                # Choose if organic queue is empty, choose random sample from provided datasets.
-                sample = random.choice(self._synth_dataset).sample()
+        timer_sample = time.perf_counter()
+        is_organic_sample = False
+        if not self._organic_queue.is_empty():
+            # Choose organic sample based on the organic queue logic.
+            sample = self._organic_queue.sample()
+            is_organic_sample = True
+        else:
+            # Choose if organic queue is empty, choose random sample from provided datasets.
+            sample = random.choice(self._synth_dataset).sample()
 
-            timer_sample_elapsed = time.perf_counter() - timer_sample
+        timer_sample_elapsed = time.perf_counter() - timer_sample
 
-            # Concurrently generate reference and query miners.
-            timer_responses = time.perf_counter()
-            reference_task = asyncio.create_task(self._generate_reference(sample))
-            responses_task = asyncio.create_task(self._query_miners(sample))
-            reference, responses = await asyncio.gather(reference_task, responses_task)
-            timer_responses_elapsed = time.perf_counter() - timer_responses
+        # Concurrently generate reference and query miners.
+        timer_responses = time.perf_counter()
+        reference_task = asyncio.create_task(self._generate_reference(sample))
+        responses_task = asyncio.create_task(self._query_miners(sample))
+        reference, responses = await asyncio.gather(reference_task, responses_task)
+        timer_responses_elapsed = time.perf_counter() - timer_responses
 
-            # Generate rewards.
-            timer_rewards = time.perf_counter()
-            rewards = await self._generate_rewards(sample, responses, reference)
-            timer_rewards_elapsed = time.perf_counter() - timer_rewards
+        # Generate rewards.
+        timer_rewards = time.perf_counter()
+        rewards = await self._generate_rewards(sample, responses, reference)
+        timer_rewards_elapsed = time.perf_counter() - timer_rewards
 
-            # Set weights based on the generated rewards.
-            timer_weights = time.perf_counter()
-            await self._set_weights(rewards)
-            timer_weights_elapsed = time.perf_counter() - timer_weights
+        # Set weights based on the generated rewards.
+        timer_weights = time.perf_counter()
+        await self._set_weights(rewards)
+        timer_weights_elapsed = time.perf_counter() - timer_weights
 
-            # Log the metrics.
-            timer_elapsed = time.perf_counter() - timer_total
-            logs = {
-                "organic_time_sample": timer_sample_elapsed,
-                "organic_time_responses": timer_responses_elapsed,
-                "organic_time_rewards": timer_rewards_elapsed,
-                "organic_time_weights": timer_weights_elapsed,
-                "organic_time_total": timer_elapsed,
-                "organic_queue_size": self._organic_queue.size(),
-                "is_organic_sample": is_organic_sample,
-            }
-            await self._log_results(
-                logs=logs,
-                reference=reference,
-                responses=responses,
-                rewards=rewards,
-                sample=sample
-            )
-            await self._trigger_delay(timer_elapsed=timer_elapsed)
+        # Log the metrics.
+        timer_elapsed = time.perf_counter() - timer_total
+        logs = {
+            "organic_time_sample": timer_sample_elapsed,
+            "organic_time_responses": timer_responses_elapsed,
+            "organic_time_rewards": timer_rewards_elapsed,
+            "organic_time_weights": timer_weights_elapsed,
+            "organic_time_total": timer_elapsed,
+            "organic_queue_size": self._organic_queue.size(),
+            "is_organic_sample": is_organic_sample,
+        }
+        await self._log_results(
+            logs=logs,
+            reference=reference,
+            responses=responses,
+            rewards=rewards,
+            sample=sample
+        )
+        await self._trigger_delay(timer_elapsed=timer_elapsed)
 
     async def _trigger_delay(self, timer_elapsed: float):
         """Adjust the sampling rate dynamically based on the size of the organic queue and the elapsed time
@@ -312,7 +311,7 @@ class OrganicScoringBase(ABC):
             - The `dynamic_steps` is calculated similarly, reducing the original step count by a value proportional 
             to the queue size divided by the scaling factor. It ensures the steps do not drop below `min_steps`.
         """
-        # Annealing sampling rate logic
+        # Annealing sampling rate logic.
         size = self._organic_queue.size()
         dynamic_unit = max(self._trigger_frequency - (size / self._trigger_scaling_factor), self._trigger_min)
         if self._trigger == "seconds":
