@@ -80,6 +80,15 @@ class OrganicScoringBase(ABC):
         self._step_counter = 0
         self._step_lock = asyncio.Lock()
 
+        # Bittensor's internal checks require synapse to be a subclass of bt.Synapse.
+        # If the methods are not overridden in the derived class, None is passed.
+        self._axon.attach(
+            forward_fn=self._on_organic_entry,
+            blacklist_fn=self._blacklist_fn if is_overridden(self._blacklist_fn) else None,
+            priority_fn=self._priority_fn if is_overridden(self._priority_fn) else None,
+            verify_fn=self._verify_fn if is_overridden(self._verify_fn) else None,
+        )
+
     def start_thread(self):
         """Start the organic scoring in a background thread"""
         if not self._is_running:
@@ -218,14 +227,6 @@ class OrganicScoringBase(ABC):
 
     async def start_loop(self):
         """The main loop for running the organic scoring task, either based on a time interval or steps"""
-        # Bittensor's internal checks require synapse to be a subclass of bt.Synapse.
-        # If the methods are not overridden in the derived class, None is passed.
-        self._axon.attach(
-            forward_fn=self._on_organic_entry,
-            blacklist_fn=self._blacklist_fn if is_overridden(self._blacklist_fn) else None,
-            priority_fn=self._priority_fn if is_overridden(self._priority_fn) else None,
-            verify_fn=self._verify_fn if is_overridden(self._verify_fn) else None,
-        )
         while not self._should_exit:
             if self._trigger == "steps":
                 while self._step_counter < self._trigger_frequency:
