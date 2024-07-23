@@ -87,6 +87,7 @@ class OrganicScoringBase(ABC):
             verify_fn=self._verify_fn if is_overridden(self._verify_fn) else None,
         )
 
+
     def increment_step(self):
         """Increment the step counter if the trigger is set to `steps`."""
         with self._step_lock:
@@ -194,15 +195,15 @@ class OrganicScoringBase(ABC):
         """
         return logs
 
-    def _priority_fn(self, synapse: bt.Synapse) -> float:
+    async def _priority_fn(self, synapse: bt.Synapse) -> float:
         """Priority function to sort the organic queue"""
         raise NotImplementedError
 
-    def _blacklist_fn(self, synapse: bt.Synapse) -> tuple[bool, str]:
+    async def _blacklist_fn(self, synapse: bt.Synapse) -> tuple[bool, str]:
         """Blacklist function for organic handles"""
         raise NotImplementedError
 
-    def _verify_fn(self, synapse: bt.Synapse) -> bool:
+    async def _verify_fn(self, synapse: bt.Synapse) -> bool:
         """Function to verify requests for organic handles"""
         raise NotImplementedError
 
@@ -302,9 +303,9 @@ class OrganicScoringBase(ABC):
         elif self._trigger == "steps":
             # Adjust the steps based on the queue size.
             async with self._step_lock:
-                self._step_counter = max(self._step_counter - int(dynamic_unit), 0)
+                self._step_counter = max(self._step_counter - dynamic_unit, 0)
 
-    def sampling_rate_dynamic(self) -> float:
+    def sample_rate_dynamic(self) -> float:
         """Returns dynamic sampling rate based on the size of the organic queue."""
         size = self._organic_queue.size()
         delay = max(self._trigger_frequency - (size / self._trigger_scaling_factor), self._trigger_min)
