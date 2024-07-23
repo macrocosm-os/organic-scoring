@@ -1,9 +1,8 @@
 import asyncio
 import random
-import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Literal, Optional, Sequence
+from typing import Any, Literal, Optional, Sequence, Union
 
 import bittensor as bt
 
@@ -16,12 +15,12 @@ class OrganicScoringBase(ABC):
     def __init__(
         self,
         axon: bt.axon,
-        synth_dataset: SynthDatasetBase | Sequence[SynthDatasetBase],
-        trigger_frequency: float | int,
+        synth_dataset: Union[SynthDatasetBase, Sequence[SynthDatasetBase]],
+        trigger_frequency: Union[float, int],
         trigger: Literal["seconds", "steps"],
-        trigger_frequency_min: float | int = 2,
-        trigger_scaling_factor: float | int = 50,
-        organic_queue: OrganicQueueBase | None = None,
+        trigger_frequency_min: Union[float, int] = 2,
+        trigger_scaling_factor: Union[float, int] = 50,
+        organic_queue: Optional[OrganicQueueBase] = None,
     ):
         """Runs the organic weight setter task in separate threads
 
@@ -76,7 +75,6 @@ class OrganicScoringBase(ABC):
         self._organic_queue = organic_queue
         if self._organic_queue is None:
             self._organic_queue = OrganicQueue()
-        self._thread: Optional[threading.Thread] = None
         self._step_counter = 0
         self._step_lock = asyncio.Lock()
 
@@ -88,23 +86,6 @@ class OrganicScoringBase(ABC):
             priority_fn=self._priority_fn if is_overridden(self._priority_fn) else None,
             verify_fn=self._verify_fn if is_overridden(self._verify_fn) else None,
         )
-
-    def start_thread(self):
-        """Start the organic scoring in a background thread"""
-        if not self._is_running:
-            bt.logging.debug("Starting organic tasks in background thread.")
-            self._should_exit = False
-            self._is_running = True
-            self._thread = threading.Thread(target=asyncio.run, args=(self.start_loop(),), daemon=True)
-            self._thread.start()
-
-    def stop_thread(self):
-        """Stop the organic scoring background thread"""
-        if self._is_running:
-            bt.logging.debug("Stopping organic tasks in background thread.")
-            self._should_exit = True
-            self._is_running = False
-            self._thread.join()
 
     def increment_step(self):
         """Increment the step counter if the trigger is set to `steps`"""
@@ -233,12 +214,12 @@ class OrganicScoringBase(ABC):
                     await asyncio.sleep(0.1)
 
             try:
-                await self._loop_iteration()
+                await self.loop_iteration()
             except Exception as e:
                 bt.logging.error(f"Error occured during organic scoring iteration:\n{e}")
                 await asyncio.sleep(1)
 
-    async def _loop_iteration(self):
+    async def loop_iteration(self):
         timer_total = time.perf_counter()
 
         timer_sample = time.perf_counter()
@@ -321,5 +302,5 @@ class OrganicScoringBase(ABC):
             await asyncio.sleep(sleep_duration)
         elif self._trigger == "steps":
             # Adjust the steps based on the queue size.
-            with self._step_lock:
+            async with self._step_lock:
                 self._step_counter = max(self._step_counter - int(dynamic_unit), 0)

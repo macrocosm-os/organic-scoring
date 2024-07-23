@@ -76,9 +76,7 @@ class YourSynthDataset(SynthDatasetBase):
     # Implement the required methods.
     ...
 
-axon = bt.axon(wallet=self.wallet, config=self.config)
-axon.serve(netuid=self.config.netuid, subtensor=self.subtensor)
-axon.start()
+axon = bt.axon(wallet=wallet, config=config)
 
 organic_scoring = YourOrganicScoring(
     axon=axon,
@@ -87,7 +85,12 @@ organic_scoring = YourOrganicScoring(
     trigger_frequency=15,
     trigger="seconds",
 )
-organic_scoring.start()
+
+axon.serve(netuid=config.netuid, subtensor=subtensor)
+axon.start()
+
+loop = asyncio.get_event_loop()
+loop.create_task(organic_scoring.start_loop())
 ```
 
 
