@@ -214,7 +214,8 @@ class OrganicScoringBase(ABC):
                     await asyncio.sleep(0.1)
 
             try:
-                await self.loop_iteration()
+                logs = await self.loop_iteration()
+                await self.trigger_delay(timer_elapsed=logs["organic_time_total"])
             except Exception as e:
                 bt.logging.error(f"Error occured during organic scoring iteration:\n{e}")
                 await asyncio.sleep(1)
@@ -262,16 +263,15 @@ class OrganicScoringBase(ABC):
             "organic_queue_size": self._organic_queue.size(),
             "is_organic_sample": is_organic_sample,
         }
-        await self._log_results(
+        return await self._log_results(
             logs=logs,
             reference=reference,
             responses=responses,
             rewards=rewards,
             sample=sample
         )
-        await self._trigger_delay(timer_elapsed=timer_elapsed)
 
-    async def _trigger_delay(self, timer_elapsed: float):
+    async def trigger_delay(self, timer_elapsed: float):
         """Adjust the sampling rate dynamically based on the size of the organic queue and the elapsed time
 
         This method implements an annealing sampling rate that adapts to the growth of the organic queue,
