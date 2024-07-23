@@ -22,7 +22,7 @@ class OrganicScoringBase(ABC):
         trigger_scaling_factor: Union[float, int] = 50,
         organic_queue: Optional[OrganicQueueBase] = None,
     ):
-        """Runs the organic weight setter task in separate threads
+        """Runs the organic weight setter task in separate threads.
 
         Args:
             axon: The axon to use, must be started and served.
@@ -88,13 +88,13 @@ class OrganicScoringBase(ABC):
         )
 
     def increment_step(self):
-        """Increment the step counter if the trigger is set to `steps`"""
+        """Increment the step counter if the trigger is set to `steps`."""
         with self._step_lock:
             if self._trigger == "steps":
                 self._step_counter += 1
 
     def set_step(self, step: int):
-        """Set the step counter to a specific value
+        """Set the step counter to a specific value.
 
         Args:
             step: The step value to set.
@@ -105,7 +105,7 @@ class OrganicScoringBase(ABC):
 
     @abstractmethod
     async def _on_organic_entry(self, synapse: bt.Synapse) -> bt.Synapse:
-        """Handle an organic entry
+        """Handle an organic entry.
 
         Important: this method must add the required values to the `_organic_queue`.
 
@@ -131,7 +131,7 @@ class OrganicScoringBase(ABC):
 
     @abstractmethod
     async def _generate_rewards(self, sample: Any, responses: Sequence[Any], reference: Any = None) -> dict[str, Any]:
-        """Generate rewards based on the sample and responses
+        """Generate rewards based on the sample and responses.
 
         Args:
             sample: The sample to use.
@@ -145,7 +145,7 @@ class OrganicScoringBase(ABC):
 
     @abstractmethod
     async def _set_weights(self, rewards: dict[str, Any]):
-        """Set the weights for the miners
+        """Set the weights for the miners.
 
         Args:
             rewards: Dict with rewards and any additional info.
@@ -153,7 +153,7 @@ class OrganicScoringBase(ABC):
         raise NotImplementedError
 
     async def _generate_reference(self, sample: Any) -> Optional[Any]:
-        """Generate a reference based on the sample
+        """Generate a reference based on the sample.
 
         Args:
             sample: The sample used to generate the reference.
@@ -173,7 +173,7 @@ class OrganicScoringBase(ABC):
         *args,
         **kwargs,
     ) -> dict[str, Any]:
-        """Log the results of the organic scoring iteration
+        """Log the results of the organic scoring iteration.
 
         Args:
             logs: The logs to record. Default values in the dict:
@@ -207,7 +207,7 @@ class OrganicScoringBase(ABC):
         raise NotImplementedError
 
     async def start_loop(self):
-        """The main loop for running the organic scoring task, either based on a time interval or steps"""
+        """The main loop for running the organic scoring task, either based on a time interval or steps."""
         while not self._should_exit:
             if self._trigger == "steps":
                 while self._step_counter < self._trigger_frequency:
@@ -272,7 +272,7 @@ class OrganicScoringBase(ABC):
         )
 
     async def trigger_delay(self, timer_elapsed: float):
-        """Adjust the sampling rate dynamically based on the size of the organic queue and the elapsed time
+        """Adjust the sampling rate dynamically based on the size of the organic queue and the elapsed time.
 
         This method implements an annealing sampling rate that adapts to the growth of the organic queue,
         ensuring the system can keep up with the data processing demands.
@@ -294,8 +294,7 @@ class OrganicScoringBase(ABC):
             to the queue size divided by the scaling factor. It ensures the steps do not drop below `min_steps`.
         """
         # Annealing sampling rate logic.
-        size = self._organic_queue.size()
-        dynamic_unit = max(self._trigger_frequency - (size / self._trigger_scaling_factor), self._trigger_min)
+        dynamic_unit = self.sample_rate_dynamic()
         if self._trigger == "seconds":
             # Adjust the sleep duration based on the queue size.
             sleep_duration = max(dynamic_unit - timer_elapsed, 0)
@@ -304,3 +303,9 @@ class OrganicScoringBase(ABC):
             # Adjust the steps based on the queue size.
             async with self._step_lock:
                 self._step_counter = max(self._step_counter - int(dynamic_unit), 0)
+
+    def sampling_rate_dynamic(self) -> float:
+        """Returns dynamic sampling rate based on the size of the organic queue."""
+        size = self._organic_queue.size()
+        delay = max(self._trigger_frequency - (size / self._trigger_scaling_factor), self._trigger_min)
+        return delay if self._trigger == "seconds" else int(delay)
