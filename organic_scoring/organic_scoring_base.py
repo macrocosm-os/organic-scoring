@@ -19,7 +19,7 @@ class OrganicScoringBase(ABC):
         trigger_frequency: Union[float, int],
         trigger: Literal["seconds", "steps"],
         trigger_frequency_min: Union[float, int] = 2,
-        trigger_scaling_factor: Union[float, int] = 50,
+        trigger_scaling_factor: Union[float, int] = 5,
         organic_queue: Optional[OrganicQueueBase] = None,
     ):
         """Runs the organic weight setter task in separate threads.
@@ -216,7 +216,7 @@ class OrganicScoringBase(ABC):
 
             try:
                 logs = await self.loop_iteration()
-                await self.trigger_delay(timer_elapsed=logs["organic_time_total"])
+                await self.wait_until_next(timer_elapsed=logs["organic_time_total"])
             except Exception as e:
                 bt.logging.error(f"Error occured during organic scoring iteration:\n{e}")
                 await asyncio.sleep(1)
@@ -272,8 +272,8 @@ class OrganicScoringBase(ABC):
             sample=sample
         )
 
-    async def trigger_delay(self, timer_elapsed: float):
-        """Adjust the sampling rate dynamically based on the size of the organic queue and the elapsed time.
+    async def wait_until_next(self, timer_elapsed: float):
+        """Wait until next iteration dynamically based on the size of the organic queue and the elapsed time.
 
         This method implements an annealing sampling rate that adapts to the growth of the organic queue,
         ensuring the system can keep up with the data processing demands.
@@ -302,8 +302,12 @@ class OrganicScoringBase(ABC):
             await asyncio.sleep(sleep_duration)
         elif self._trigger == "steps":
             # Adjust the steps based on the queue size.
-            async with self._step_lock:
-                self._step_counter = max(self._step_counter - dynamic_unit, 0)
+            while True:
+                if self._step_counter >= dynamic_unit:
+                    self._step_counter -= dynamic_unit
+                else:
+                    await asyncio.sleep(1)
+
 
     def sample_rate_dynamic(self) -> float:
         """Returns dynamic sampling rate based on the size of the organic queue."""
