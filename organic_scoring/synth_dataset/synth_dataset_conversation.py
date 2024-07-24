@@ -78,16 +78,3 @@ class SynthDatasetConversation(SynthDatasetBase):
                 message.insert(error_position, " ")
 
         return "".join(message)
-
-
-def main():
-    dataset = SynthDatasetConversation()
-    for i in range(10):
-        sample = dataset.sample()
-        print(f"Sample {i+1}")
-        print("Roles:", sample["roles"])
-        print("Messages:", sample["messages"])
-        print("-" * 40)
-
-if __name__ == "__main__":
-    main()
