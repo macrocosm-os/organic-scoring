@@ -70,13 +70,24 @@ class YourOrganicScoring(OrganicScoringBase):
 
 class YourOrganicQueue(OrganicQueueBase):
     # Implement the required methods.
-    ...
+    def add(self, sample: Any):
+        ...
+    
+    def sample(self) -> Any:
+        ...
+
+    @property
+    def size(self) -> int:
+        ...
 
 class YourSynthDataset(SynthDatasetBase):
     # Implement the required methods.
-    ...
+    def sample(self) -> Any:
+        ...
 
-axon = bt.axon(wallet=wallet, config=config)
+axon = bt.axon(wallet=self.wallet, config=self.config)
+axon.serve(netuid=self.config.netuid, subtensor=self.subtensor)
+axon.start()
 
 organic_scoring = YourOrganicScoring(
     axon=axon,
@@ -85,12 +96,7 @@ organic_scoring = YourOrganicScoring(
     trigger_frequency=15,
     trigger="seconds",
 )
-
-axon.serve(netuid=config.netuid, subtensor=subtensor)
-axon.start()
-
-loop = asyncio.get_event_loop()
-loop.create_task(organic_scoring.start_loop())
+organic_scoring.start()
 ```
 
 

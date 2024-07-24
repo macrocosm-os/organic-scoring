@@ -3,7 +3,7 @@ from typing import Any
 
 
 class OrganicQueueBase(ABC):
-    """Base organic queue
+    """Base organic queue.
     
     The following methods must be implemented:
         - add: Add the sample to the queue;
@@ -13,14 +13,15 @@ class OrganicQueueBase(ABC):
 
     @abstractmethod
     def add(self, sample: Any):
-        """Add the sample to the queue"""
+        """Add the sample to the queue."""
         raise NotImplementedError
 
     @abstractmethod
     def sample(self) -> Any:
-        """Pop the sample from the queue"""
+        """Pop the sample from the queue."""
         raise NotImplementedError
 
+    @property
     @abstractmethod
     def size(self) -> int:
         raise NotImplementedError

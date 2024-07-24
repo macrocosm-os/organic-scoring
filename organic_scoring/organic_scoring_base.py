@@ -263,7 +263,7 @@ class OrganicScoringBase(ABC):
             "organic_time_rewards": timer_rewards_elapsed,
             "organic_time_weights": timer_weights_elapsed,
             "organic_time_total": timer_elapsed,
-            "organic_queue_size": self._organic_queue.size(),
+            "organic_queue_size": self._organic_queue.size,
             "is_organic_sample": is_organic_sample,
         }
         return await self._log_results(
@@ -310,9 +310,8 @@ class OrganicScoringBase(ABC):
                 else:
                     await asyncio.sleep(1)
 
-
     def sample_rate_dynamic(self) -> float:
         """Returns dynamic sampling rate based on the size of the organic queue."""
-        size = self._organic_queue.size()
+        size = self._organic_queue.size
         delay = max(self._trigger_frequency - (size / self._trigger_scaling_factor), self._trigger_min)
         return delay if self._trigger == "seconds" else int(delay)

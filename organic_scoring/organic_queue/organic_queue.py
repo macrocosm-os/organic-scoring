@@ -5,7 +5,7 @@ from organic_scoring.organic_queue.organic_queue_base import OrganicQueueBase
 
 
 class OrganicQueue(OrganicQueueBase):
-    """Basic organic queue, implemented as a list"""
+    """Basic organic queue, implemented as a list."""
     def __init__(self):
         self._queue = []
 
@@ -14,10 +14,11 @@ class OrganicQueue(OrganicQueueBase):
         self._queue.append(sample)
 
     def sample(self) -> Any:
-        """Randomly pop the sample from the queue, if the queue is empty return None"""
+        """Randomly pop the sample from the queue, if the queue is empty return None."""
         if self.is_empty():
             return None
         return self._queue.pop(random.randint(0, self.size() - 1))
 
+    @property
     def size(self) -> int:
         return len(self._queue)
