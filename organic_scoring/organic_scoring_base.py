@@ -15,7 +15,7 @@ class OrganicScoringBase(ABC):
     def __init__(
         self,
         axon: bt.axon,
-        synth_dataset: Union[SynthDatasetBase, Sequence[SynthDatasetBase]],
+        synth_dataset: Optional[Union[SynthDatasetBase, Sequence[SynthDatasetBase]]],
         trigger_frequency: Union[float, int],
         trigger: Literal["seconds", "steps"],
         trigger_frequency_min: Union[float, int] = 2,
@@ -26,7 +26,8 @@ class OrganicScoringBase(ABC):
 
         Args:
             axon: The axon to use, must be started and served.
-            synth_dataset: The synthetic dataset to use, must be inherited from `synth_dataset.SynthDatasetBase`.
+            synth_dataset: The synthetic dataset(s) to use, must be inherited from `synth_dataset.SynthDatasetBase`.
+                If None, only organic data will be used, when available.
             trigger_frequency: The frequency to trigger the organic scoring reward step.
             trigger: The trigger type, available values: "seconds", "steps".
                 In case of "seconds" the `trigger_frequency` is the number of seconds to wait between each step.
@@ -86,7 +87,6 @@ class OrganicScoringBase(ABC):
             priority_fn=self._priority_fn if is_overridden(self._priority_fn) else None,
             verify_fn=self._verify_fn if is_overridden(self._verify_fn) else None,
         )
-
 
     def increment_step(self):
         """Increment the step counter if the trigger is set to `steps`."""
@@ -216,12 +216,12 @@ class OrganicScoringBase(ABC):
 
             try:
                 logs = await self.loop_iteration()
-                await self.wait_until_next(timer_elapsed=logs["organic_time_total"])
+                await self.wait_until_next(timer_elapsed=logs.get("organic_time_total", 0))
             except Exception as e:
                 bt.logging.error(f"Error occured during organic scoring iteration:\n{e}")
                 await asyncio.sleep(1)
 
-    async def loop_iteration(self):
+    async def loop_iteration(self) -> dict[str, Any]:
         timer_total = time.perf_counter()
 
         timer_sample = time.perf_counter()
@@ -230,9 +230,11 @@ class OrganicScoringBase(ABC):
             # Choose organic sample based on the organic queue logic.
             sample = self._organic_queue.sample()
             is_organic_sample = True
-        else:
+        elif self._synth_dataset is not None:
             # Choose if organic queue is empty, choose random sample from provided datasets.
             sample = random.choice(self._synth_dataset).sample()
+        else:
+            return {}
 
         timer_sample_elapsed = time.perf_counter() - timer_sample
 
@@ -272,7 +274,7 @@ class OrganicScoringBase(ABC):
             sample=sample
         )
 
-    async def wait_until_next(self, timer_elapsed: float):
+    async def wait_until_next(self, timer_elapsed: float = 0):
         """Wait until next iteration dynamically based on the size of the organic queue and the elapsed time.
 
         This method implements an annealing sampling rate that adapts to the growth of the organic queue,

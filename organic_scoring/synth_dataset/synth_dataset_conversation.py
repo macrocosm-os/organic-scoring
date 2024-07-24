@@ -12,12 +12,20 @@ nltk.download("wordnet")
 
 class SynthDatasetConversation(SynthDatasetBase):
     def __init__(self):
+        """Sample LMSys dataset, requires to login to the HuggingFace."""
         self._url = "lmsys/lmsys-chat-1m"
-        self.dataset = datasets.load_dataset(self._url)["train"]
-        self._chance_word_synonym = 0.05
+        self.exception = None
+        try:
+            self.dataset = datasets.load_dataset(self._url)["train"]
+        except Exception as e:
+            self.exception = e
+        self._chance_word_synonym = 0.10
         self._chance_char_typo = 0.02
 
     def sample(self) -> dict[str, Any]:
+        """Sample the data, raises an exception if login to HuggingFace was unsuccessful."""
+        if not self.success:
+            raise self.exception
         # Randomly select a sample from the dataset.
         sample_idx = random.randint(0, len(self.dataset) - 1)
         conversation = self.dataset[sample_idx]["conversation"]
@@ -78,3 +86,10 @@ class SynthDatasetConversation(SynthDatasetBase):
                 message.insert(error_position, " ")
 
         return "".join(message)
+
+
+if __name__ == "__main__":
+    dataset = SynthDatasetConversation()
+    print(dataset.exception)
+    # sample = dataset.sample()
+    # print("Sampled data:", sample)
