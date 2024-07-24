@@ -2,7 +2,7 @@ import asyncio
 import random
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Literal, Optional, Sequence, Union
+from typing import Any, Literal, Optional, Sequence, Union, Tuple
 
 import bittensor as bt
 
@@ -196,16 +196,16 @@ class OrganicScoringBase(ABC):
         return logs
 
     async def _priority_fn(self, synapse: bt.Synapse) -> float:
-        """Priority function to sort the organic queue"""
-        raise NotImplementedError
+        """Priority function to sort the organic queue."""
+        return 0.0
 
-    async def _blacklist_fn(self, synapse: bt.Synapse) -> tuple[bool, str]:
-        """Blacklist function for organic handles"""
-        raise NotImplementedError
+    async def _blacklist_fn(self, synapse: bt.Synapse) -> Tuple[bool, str]:
+        """Blacklist function for organic handles."""
+        return False, ""
 
     async def _verify_fn(self, synapse: bt.Synapse) -> bool:
-        """Function to verify requests for organic handles"""
-        raise NotImplementedError
+        """Function to verify requests for organic handles."""
+        return True
 
     async def start_loop(self):
         """The main loop for running the organic scoring task, either based on a time interval or steps."""
