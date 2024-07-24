@@ -27,7 +27,7 @@ class OrganicQueueBase(ABC):
         raise NotImplementedError
 
     def __len__(self) -> int:
-        return self.size()
+        return self.size
 
     def is_empty(self) -> bool:
-        return self.size() == 0
+        return self.size == 0
