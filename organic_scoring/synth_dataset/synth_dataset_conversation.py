@@ -86,10 +86,3 @@ class SynthDatasetConversation(SynthDatasetBase):
                 message.insert(error_position, " ")
 
         return "".join(message)
-
-
-if __name__ == "__main__":
-    dataset = SynthDatasetConversation()
-    print(dataset.exception)
-    # sample = dataset.sample()
-    # print("Sampled data:", sample)
